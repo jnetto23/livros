@@ -183,36 +183,13 @@ tests/
 - Docker e Docker Compose instalados
 - Make (opcional, mas recomendado)
 
-### Desenvolvimento
+### Clone repository
 
-1. **Clone o repositório** (se aplicável)
-   ```bash
-   git clone <repository-url>
-   cd livros
-   ```
-
-2. **Execute o projeto**
-   ```bash
-   make up
-   ```
-   
-   Este comando irá:
-   - Subir os containers (PHP, MySQL, Nginx)
-   - Aguardar os containers ficarem prontos
-   - Executar as migrations automaticamente
-   - Executar os seeds automaticamente
-   - Deixar o projeto pronto para uso
-
-3. **Acesse o projeto**
-   - Frontend: http://localhost
-
-### Produção
-
+**Clone o repositório** (se aplicável)
 ```bash
-make up-prod
+git clone <repository-url>
+cd livros
 ```
-
-Este comando faz o mesmo que `make up`, mas usando o target de produção.
 
 ### Primeira Execução
 
@@ -227,6 +204,31 @@ Na primeira vez que executar o projeto, você pode precisar:
    ```bash
    make artisan cmd="key:generate"
    ```
+
+### Desenvolvimento
+**Execute o projeto**
+```bash
+make up
+```
+   
+   Este comando irá:
+   - Subir os containers (PHP, MySQL, Nginx)
+   - Aguardar os containers ficarem prontos
+   - Executar as migrations automaticamente
+   - Executar os seeds automaticamente
+   - Deixar o projeto pronto para uso
+
+**Acesse o projeto**
+   - Frontend: http://localhost
+
+### Produção
+
+```bash
+make up-prod
+```
+
+Este comando faz o mesmo que `make up`, mas usando o target de produção.
+
 
 ## 🧪 Testes
 
