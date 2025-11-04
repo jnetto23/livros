@@ -18,8 +18,18 @@ class BibliotecaSeeder extends Seeder
             $insertAndReturnIds = function (string $table, string $pk, array $rows): array {
                 $map = [];
                 foreach ($rows as $row) {
-                    $id = DB::table($table)->insertGetId($row, $pk);
-                    $map[$row['descricao'] ?? $row['nome'] ?? $row['titulo']] = $id;
+                    // Verifica se o registro já existe antes de inserir
+                    $key = $row['descricao'] ?? $row['nome'] ?? $row['titulo'];
+                    $existing = DB::table($table)
+                        ->where($pk === 'codas' ? 'descricao' : ($pk === 'codau' ? 'nome' : 'titulo'), $key)
+                        ->first();
+
+                    if ($existing) {
+                        $id = $existing->$pk;
+                    } else {
+                        $id = DB::table($table)->insertGetId($row, $pk);
+                    }
+                    $map[$key] = $id;
                 }
                 return $map;
             };
@@ -116,7 +126,13 @@ class BibliotecaSeeder extends Seeder
 
             $livroId = [];
             foreach ($livros as $livro) {
-                $id = DB::table('livro')->insertGetId($livro, 'codl');
+                // Verifica se o livro já existe antes de inserir
+                $existing = DB::table('livro')->where('titulo', $livro['titulo'])->first();
+                if ($existing) {
+                    $id = $existing->codl;
+                } else {
+                    $id = DB::table('livro')->insertGetId($livro, 'codl');
+                }
                 $livroId[$livro['titulo']] = $id;
             }
 
@@ -126,10 +142,18 @@ class BibliotecaSeeder extends Seeder
                     if (!isset($autorId[$nome])) {
                         continue; // Ignora autores que não existem
                     }
-                    DB::table('livro_autor')->insert([
-                        'livro_codl' => $livroId[$titulo],
-                        'autor_codau' => $autorId[$nome],
-                    ]);
+                    // Verifica se a relação já existe antes de inserir
+                    $exists = DB::table('livro_autor')
+                        ->where('livro_codl', $livroId[$titulo])
+                        ->where('autor_codau', $autorId[$nome])
+                        ->exists();
+
+                    if (!$exists) {
+                        DB::table('livro_autor')->insert([
+                            'livro_codl' => $livroId[$titulo],
+                            'autor_codau' => $autorId[$nome],
+                        ]);
+                    }
                 }
             };
 
@@ -188,10 +212,18 @@ class BibliotecaSeeder extends Seeder
                     if (!isset($assuntoId[$a])) {
                         continue; // Ignora assuntos que não existem
                     }
-                    DB::table('livro_assunto')->insert([
-                        'livro_codl' => $livroId[$titulo],
-                        'assunto_codas' => $assuntoId[$a],
-                    ]);
+                    // Verifica se a relação já existe antes de inserir
+                    $exists = DB::table('livro_assunto')
+                        ->where('livro_codl', $livroId[$titulo])
+                        ->where('assunto_codas', $assuntoId[$a])
+                        ->exists();
+
+                    if (!$exists) {
+                        DB::table('livro_assunto')->insert([
+                            'livro_codl' => $livroId[$titulo],
+                            'assunto_codas' => $assuntoId[$a],
+                        ]);
+                    }
                 }
             };
 
