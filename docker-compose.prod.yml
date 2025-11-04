@@ -1,0 +1,26 @@
+services:
+  php:
+    build:
+      target: prod
+      args:
+        UID: ${UID:-1000}
+        GID: ${GID:-1000}
+    # Sem bind do código em prod 👇
+    volumes:
+      - ./.docker/php/php.ini:/usr/local/etc/php/conf.d/99-custom.ini:ro
+      - ./.docker/entrypoint.sh:/usr/local/bin/entrypoint.sh:ro
+    environment:
+      APP_ENV: production
+      APP_DEBUG: "false"
+
+  # (opcional) customizações extras para prod
+  nginx:
+    ports:
+      - "80:80"    # ajuste se precisar
+
+  mysql:
+    environment:
+      MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASSWORD:-root}
+      MYSQL_DATABASE: ${DB_DATABASE:-livros}
+      MYSQL_USER: ${DB_USERNAME:-livros}
+      MYSQL_PASSWORD: ${DB_PASSWORD:-livros}

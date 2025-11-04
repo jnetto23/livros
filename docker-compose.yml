@@ -1,0 +1,69 @@
+services:
+  nginx:
+    image: nginx:1.27-alpine
+    container_name: livros-nginx
+    depends_on:
+      php:
+        condition: service_started
+    ports:
+      - "80:80"             # se tiver Apache no host, troque para "8080:80"
+    volumes:
+      - ./:/var/www/html:ro
+      - ./.docker/nginx/default.conf:/etc/nginx/conf.d/default.conf:ro
+    networks:
+      - lara_livros
+
+  php:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: ${TARGET:-dev}         # dev (default) ou prod
+      args:
+        UID: ${UID:-1000}
+        GID: ${GID:-1000}
+    container_name: livros-php
+    environment:
+      # o Laravel lê o seu .env do projeto; estas são só conveniências
+      DB_HOST: mysql
+      DB_PORT: "3306"
+    volumes:
+      - ./:/var/www/html             # em prod, REMOVA esta linha (imagem imutável)
+      - ./.docker/php/php.ini:/usr/local/etc/php/conf.d/99-custom.ini:ro
+      - ./.docker/entrypoint.sh:/usr/local/bin/entrypoint.sh:ro
+    entrypoint: ["/usr/local/bin/entrypoint.sh"]
+    depends_on:
+      mysql:
+        condition: service_healthy
+    networks:
+      - lara_livros
+
+  mysql:
+    image: mysql:8.0.36
+    container_name: livros-mysql
+    command: >
+      --character-set-server=utf8mb4
+      --collation-server=utf8mb4_unicode_ci
+      --sql-mode=STRICT_TRANS_TABLES,ERROR_FOR_DIVISION_BY_ZERO,NO_ENGINE_SUBSTITUTION
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_DATABASE: livros
+      MYSQL_USER: livros
+      MYSQL_PASSWORD: livros
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -h localhost -ulivros -plivros --silent"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+    ports:
+      - "3306:3306"
+    volumes:
+      - livros_data:/var/lib/mysql
+    networks:
+      - lara_livros
+
+networks:
+  lara_livros:
+    driver: bridge
+
+volumes:
+  livros_data:
