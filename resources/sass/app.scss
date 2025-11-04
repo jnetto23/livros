@@ -1,0 +1,96 @@
+// Estilos customizados (Bootstrap já está carregado via CDN)
+// Validação de formulários - mensagens em vermelho
+.form-control.is-invalid,
+.form-select.is-invalid {
+  border-color: #dc3545 !important;
+  background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12' width='12' height='12' fill='none' stroke='%23dc3545'%3e%3ccircle cx='6' cy='6' r='4.5'/%3e%3cpath d='m5.8 3.6 .4.4.4-.4'/%3e%3cpath d='m6.2 8.4-.4-.4-.4.4'/%3e%3c/svg%3e");
+  background-repeat: no-repeat;
+  background-position: right calc(0.375em + 0.1875rem) center;
+  background-size: calc(0.75em + 0.375rem) calc(0.75em + 0.375rem);
+  padding-right: calc(1.5em + 0.75rem);
+
+  &:focus {
+    border-color: #dc3545 !important;
+    box-shadow: 0 0 0 0.25rem rgba(220, 53, 69, 0.25) !important;
+  }
+}
+
+.invalid-feedback {
+  display: block !important;
+  width: 100%;
+  margin-top: 0.25rem;
+  font-size: 0.875em;
+  color: #dc3545 !important;
+  font-weight: 500;
+}
+
+
+// Botões melhorados
+.btn {
+  transition: all 0.2s ease;
+
+  &:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  }
+
+  &:active {
+    transform: translateY(0);
+  }
+}
+
+// Nav tabs melhorado
+.nav-tabs {
+  .nav-link {
+    &:hover {
+      border-color: #dee2e6;
+    }
+  }
+}
+
+// Input search melhorado
+.form-control {
+  &::placeholder {
+    opacity: 0.6;
+  }
+}
+
+// Melhorias gerais
+.vstack {
+  gap: 1.5rem !important;
+}
+
+// Animações suaves
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.card,
+.modal-content {
+  animation: fadeIn 0.3s ease;
+}
+
+// Multi-select nativo customizações
+select[multiple] {
+  min-height: 120px;
+
+  option {
+    padding: 0.5rem;
+  }
+}
+
+// Toast acima dos modais
+.toast-container {
+  z-index: 1060 !important;
+}
+
+.toast {
+  z-index: 1060 !important;
+}
