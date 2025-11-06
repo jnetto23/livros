@@ -32,17 +32,31 @@
     </div>
   </div>
 
+    @php
+        // Para exibir o indicador de sort no cabeçalho
+        $sortMap = ['description' => 'descricao'];
+        $currentSort = $sort ?? 'descricao';
+    @endphp
+
   {{-- Table --}}
   <div class="card">
     <div class="table-responsive">
-      <table class="table table-sm table-hover align-middle mb-0">
+      <table class="table table-hover align-middle mb-0">
         <thead>
           <tr>
             <th style="width:60%;">
-              <button class="btn btn-link p-0 text-decoration-none" wire:click="setSort('description')">
+                <a class="link-dark p-0 text-decoration-none"
+                      wire:click="setSort('description')"
+                      wire:loading.attr="disabled">
                 Assunto
-                @if($sort==='description') <small>{{ strtoupper($dir) }}</small> @endif
-              </button>
+                @if(($sortMap['description'] ?? 'description') === $currentSort)
+                  <span style="font-size: 12px; display:inline-block; width: 12px;">
+                        @if(strtoupper($dir) === 'ASC') &#8595;
+                        @elseif(strtoupper($dir) === 'DESC') &#8593;
+                        @endif
+                    </span>
+                @endif
+                </a>
             </th>
             <th class="text-end" style="width:140px;"></th>
           </tr>
@@ -64,24 +78,46 @@
     </div>
   </div>
 
-  {{-- Pagination --}}
-  @php($total=$this->rows['total']) @php($pages=$this->rows['pages'])
-  @if($pages>1)
+    {{-- Pagination --}}
+    @php
+        $items       = $rows['items'] ?? [];
+        $total       = $rows['total'] ?? 0;
+        $pages       = $rows['pages'] ?? 0;
+        $currentPage = $rows['currentPage'] ?? 1;
+        $count       = count($items);
+        $from        = $total ? (($currentPage - 1) * $perPage) + 1 : 0;
+        $to          = $from ? $from + $count - 1 : 0;
+    @endphp
+
+    @if($pages > 1)
     <div class="d-flex justify-content-between align-items-center">
-      <small class="text-muted">
-        Mostrando {{ ($page-1)*$perPage + 1 }} de {{ min($page*$perPage, $total) }} total {{ $total }} resultados
-      </small>
-      <div class="btn-group">
-        <button class="btn btn-outline-secondary btn-sm" @disabled($page===1) wire:click="goto({{ $page-1 }})">Anterior</button>
-        @for($p=1;$p<=$pages;$p++)
-          <button class="btn btn-sm {{ $p===$page ? 'btn-primary' : 'btn-outline-secondary' }}" wire:click="goto({{ $p }})">
+    <small class="text-muted">
+        Mostrando {{ $from }}–{{ $to }} de {{ $total }} resultados
+    </small>
+
+    <div class="btn-group">
+        <button class="btn btn-outline-secondary btn-sm"
+                wire:click="previousPage('{{ $this->pageName }}')"
+                @if($currentPage === 1) disabled @endif>
+        Anterior
+        </button>
+
+        @for($p=1; $p <= $pages; $p++)
+        <button class="btn btn-sm {{ $p === $currentPage ? 'btn-primary' : 'btn-outline-secondary' }}"
+                wire:click="gotoPage({{ $p }}, '{{ $this->pageName }}')"
+                wire:key="subject-page-{{ $p }}">
             {{ $p }}
-          </button>
+        </button>
         @endfor
-        <button class="btn btn-outline-secondary btn-sm" @disabled($page===$pages) wire:click="goto({{ $page+1 }})">Próxima</button>
-      </div>
+
+        <button class="btn btn-outline-secondary btn-sm"
+                wire:click="nextPage('{{ $this->pageName }}')"
+                @if($currentPage === $pages) disabled @endif>
+        Próxima
+        </button>
     </div>
-  @endif
+    </div>
+    @endif
 
   {{-- Modal Create/Edit --}}
   <div class="modal" tabindex="-1" id="subjectModal" wire:ignore.self>

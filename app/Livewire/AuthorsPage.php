@@ -1,30 +1,90 @@
 <?php
 
 namespace App\Livewire;
-
-use App\Application\Usecases\Commands\CreateAutorCommand;
-use App\Application\Usecases\Commands\DeleteAutorCommand;
-use App\Application\Usecases\Commands\UpdateAutorCommand;
-use App\Application\Usecases\Queries\FindAutorByIdQuery;
-use App\Application\Usecases\Queries\ListAutoresQuery;
 use Livewire\Component;
+use Livewire\WithPagination;
+use Livewire\Attributes\{
+    Url,
+    Computed,
+};
 
-class AuthorsPage extends Component
+use App\Application\Usecases\Queries\{
+    ListAutoresQuery, ListAutoresInputDTO,
+    FindAutorByIdQuery, FindAutorByIdInputDTO
+};
+use App\Application\Usecases\Commands\{
+    CreateAutorCommand, CreateAutorInputDTO,
+    UpdateAutorCommand, UpdateAutorInputDTO,
+    DeleteAutorCommand, DeleteAutorInputDTO
+};
+
+final class AuthorsPage extends Component
 {
-    public string $search = '';
-    public string $sort = 'name';
-    public string $dir = 'asc';
+    use WithPagination;
 
-    public int $page = 1;
-    public int $perPage = 10;
+    protected string $pageName = 'page';
 
+    // Filtros/ordenação
+    #[Url(history: true)] public string $search = '';
+    #[Url(history: true)] public ?string $sort = 'nome'; // coluna válida no backend
+    #[Url(history: true)] public string $dir = 'asc';
+
+    // Tamanho da página
+    #[Url(history: true)] public int $perPage = 10;
+
+    // Edição
     public ?string $editingId = null;
     public string $name = '';
     public bool $saving = false;
 
-    public function mount(): void
+    // Dependências
+    private ListAutoresQuery $listAutores;
+    private FindAutorByIdQuery $findAutor;
+    private CreateAutorCommand $createAutor;
+    private UpdateAutorCommand $updateAutor;
+    private DeleteAutorCommand $deleteAutor;
+
+    public function boot(
+        ListAutoresQuery $listAutores,
+        FindAutorByIdQuery $findAutor,
+        CreateAutorCommand $createAutor,
+        UpdateAutorCommand $updateAutor,
+        DeleteAutorCommand $deleteAutor,
+    ): void {
+        $this->listAutores = $listAutores;
+        $this->findAutor   = $findAutor;
+        $this->createAutor = $createAutor;
+        $this->updateAutor = $updateAutor;
+        $this->deleteAutor = $deleteAutor;
+    }
+
+    /** ================= AÇÕES DE UI ================= */
+
+    public function setSort(string $column): void
     {
-        // Carrega dados iniciais
+        // UI -> coluna válida no backend
+        $map = [
+            'name' => 'nome',
+        ];
+        $col = $map[$column] ?? 'nome';
+
+        if ($this->sort === $col) {
+            $this->dir = $this->dir === 'asc' ? 'desc' : 'asc';
+        } else {
+            $this->sort = $col;
+            $this->dir  = 'asc';
+        }
+        $this->resetPage($this->pageName);
+    }
+
+    public function updatedSearch(): void
+    {
+        $this->resetPage($this->pageName);
+    }
+
+    public function updatedPerPage(): void
+    {
+        $this->resetPage($this->pageName);
     }
 
     public function openCreate(): void
@@ -38,58 +98,19 @@ class AuthorsPage extends Component
     public function openEdit(string $id): void
     {
         try {
-            $query = app(FindAutorByIdQuery::class);
-            $input = new \App\Application\Usecases\Queries\FindAutorByIdInputDTO(codau: (int) $id);
-            $output = $query->execute($input);
-            assert($output instanceof \App\Application\Usecases\Queries\FindAutorByIdOutputDTO);
-
+            $output = $this->findAutor->execute(new FindAutorByIdInputDTO((int) $id));
             if ($output->autor === null) {
                 $this->dispatch('show-error', message: 'Autor não encontrado');
                 return;
             }
 
             $this->editingId = (string) $output->autor->codau();
-            $this->name = $output->autor->nome()->value();
-            $this->saving = false;
+            $this->name      = $output->autor->nome()->value();
+            $this->saving    = false;
+
             $this->dispatch('modal:open', id: 'authorModal');
         } catch (\Throwable $e) {
             $this->dispatch('show-error', message: $e->getMessage());
-        }
-    }
-
-    public function save(): void
-    {
-        $this->saving = true;
-
-        $this->validate(['name' => ['required', 'string', 'max:255']]);
-
-        try {
-            if ($this->editingId) {
-                $command = app(UpdateAutorCommand::class);
-                $input = new \App\Application\Usecases\Commands\UpdateAutorInputDTO(
-                    codau: (int) $this->editingId,
-                    nome: $this->name
-                );
-                $command->execute($input);
-                $this->dispatch('show-success', message: 'Autor atualizado com sucesso');
-            } else {
-                $command = app(CreateAutorCommand::class);
-                $input = new \App\Application\Usecases\Commands\CreateAutorInputDTO(
-                    nome: $this->name
-                );
-                $output = $command->execute($input);
-                assert($output instanceof \App\Application\Usecases\Commands\CreateAutorOutputDTO);
-                $this->dispatch('show-success', message: 'Autor criado com sucesso');
-            }
-
-            $this->dispatch('modal:close', id: 'authorModal');
-            $this->reset(['editingId', 'name']);
-        } catch (\DomainException $e) {
-            $this->addError('name', $e->getMessage());
-        } catch (\Throwable $e) {
-            $this->dispatch('show-error', message: 'Erro ao salvar autor: ' . $e->getMessage());
-        } finally {
-            $this->saving = false;
         }
     }
 
@@ -102,81 +123,93 @@ class AuthorsPage extends Component
     public function delete(): void
     {
         try {
-            $command = app(DeleteAutorCommand::class);
-            $input = new \App\Application\Usecases\Commands\DeleteAutorInputDTO(codau: (int) $this->editingId);
-            $command->execute($input);
-
+            $this->deleteAutor->execute(new DeleteAutorInputDTO((int) $this->editingId));
             $this->dispatch('show-success', message: 'Autor excluído com sucesso');
-            $this->dispatch('modal:close', id: 'authorDeleteModal');
-            $this->editingId = null;
         } catch (\DomainException $e) {
-            $this->dispatch('modal:close', id: 'authorDeleteModal');
             $this->dispatch('show-error', message: $e->getMessage());
         } catch (\Throwable $e) {
-            $this->dispatch('modal:close', id: 'authorDeleteModal');
             $this->dispatch('show-error', message: 'Erro ao excluir autor: ' . $e->getMessage());
+        } finally {
+            $this->dispatch('modal:close', id: 'authorDeleteModal');
+            $this->editingId = null;
         }
     }
 
-    public function setSort(string $column): void
+    /** ================= SALVAR ================= */
+
+    protected function rules(): array
     {
-        if ($this->sort === $column) {
-            $this->dir = $this->dir === 'asc' ? 'desc' : 'asc';
-        } else {
-            $this->sort = $column;
-            $this->dir = 'asc';
-        }
-        $this->page = 1;
+        return [
+            'name' => ['required', 'string', 'max:255'],
+        ];
     }
 
-    public function updatedSearch(): void
+    public function save(): void
     {
-        $this->page = 1;
-    }
+        $this->saving = true;
+        $this->validate();
 
-    public function goto(int $p): void
-    {
-        $this->page = max(1, $p);
-    }
-
-    public function getRowsProperty(): array
-    {
         try {
-            $query = app(ListAutoresQuery::class);
-            $input = new \App\Application\Usecases\Queries\ListAutoresInputDTO(
-                search: $this->search ?: null,
-                sort: $this->sort,
-                dir: $this->dir,
-                page: $this->page,
-                limit: $this->perPage
-            );
+            if ($this->editingId) {
+                $this->updateAutor->execute(new UpdateAutorInputDTO(
+                    codau: (int) $this->editingId,
+                    nome: $this->name
+                ));
+                $this->dispatch('show-success', message: 'Autor atualizado com sucesso');
+            } else {
+                $this->createAutor->execute(new CreateAutorInputDTO(
+                    nome: $this->name
+                ));
+                $this->dispatch('show-success', message: 'Autor criado com sucesso');
+            }
 
-            $output = $query->execute($input);
-            assert($output instanceof \App\Application\Usecases\Queries\ListAutoresOutputDTO);
-
-            $items = array_map(function ($autor) {
-                return [
-                    'id' => (string) $autor->codau(),
-                    'name' => $autor->nome()->value(),
-                ];
-            }, $output->autores());
-
-            return [
-                'items' => $items,
-                'total' => $output->total,
-                'pages' => $output->totalPages,
-            ];
+            $this->dispatch('modal:close', id: 'authorModal');
+            $this->name = '';
+            $this->editingId = null;
+            $this->resetPage($this->pageName);
+        } catch (\DomainException $e) {
+            $this->addError('name', $e->getMessage());
         } catch (\Throwable $e) {
-            return [
-                'items' => [],
-                'total' => 0,
-                'pages' => 0,
-            ];
+            $this->dispatch('show-error', message: 'Erro ao salvar autor: ' . $e->getMessage());
+        } finally {
+            $this->saving = false;
         }
+    }
+
+    /** ================= COMPUTED ================= */
+
+    #[Computed]
+    public function rows(): array
+    {
+        $currentPage = $this->getPage($this->pageName);
+
+        $output = $this->listAutores->execute(new ListAutoresInputDTO(
+            search: $this->search ?: null,
+            sort:   $this->sort ?: 'nome',
+            dir:    $this->dir,
+            page:   $currentPage,
+            limit:  $this->perPage
+        ));
+
+        $items = array_map(function ($autor) {
+            return [
+                'id'   => (string) $autor->codau(),
+                'name' => $autor->nome()->value(),
+            ];
+        }, $output->autores());
+
+        return [
+            'items'       => $items,
+            'total'       => $output->total,
+            'pages'       => $output->totalPages,
+            'currentPage' => $currentPage,
+        ];
     }
 
     public function render()
     {
-        return view('livewire.authors-page');
+        return view('livewire.authors-page', [
+            'rows' => $this->rows,
+        ]);
     }
 }
