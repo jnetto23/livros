@@ -132,7 +132,7 @@
         <div class="modal-body">
           <div class="mb-3">
             <label for="description" class="form-label">Assunto <span class="text-danger">*</span></label>
-            <input id="description" type="text" maxlength="255" class="form-control @error('description') is-invalid @enderror"
+            <input id="description" type="text" maxlength="20" class="form-control @error('description') is-invalid @enderror"
                    wire:model.defer="description" placeholder="Ficção Científica">
             @error('description') <div class="invalid-feedback">{{ $message }}</div> @enderror
           </div>

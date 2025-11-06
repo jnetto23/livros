@@ -103,8 +103,8 @@ final class SubjectsPage extends Component
             }
 
             $this->resetValidation();
-            $this->editingId = (string) $out->assunto->codas();
-            $this->description = $out->assunto->descricao()->value();
+            $this->editingId = (string) $output->assunto->codas();
+            $this->description = $output->assunto->descricao()->value();
             $this->saving = false;
 
             $this->dispatch('modal:open', id: 'subjectModal');
