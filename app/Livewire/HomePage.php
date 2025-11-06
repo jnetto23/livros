@@ -17,6 +17,7 @@ class HomePage extends Component
     public function setPage(string $p): void
     {
         $this->currentPage = in_array($p, ['subjects','authors','books']) ? $p : 'books';
+        $this->dispatch('clear-querystring');
     }
 
     public function render()

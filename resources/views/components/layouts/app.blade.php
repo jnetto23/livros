@@ -67,6 +67,10 @@
   @stack('scripts')
 
   <script>
+    // ===== Ajuste navegacao =====
+    window.addEventListener('clear-querystring', () => {
+        history.replaceState({}, '', location.pathname);
+    });
     // ===== Modais: abrir/fechar via Browser Events do Livewire =====
     window.addEventListener('modal:open', (e) => {
       const el = document.getElementById(e.detail.id);
