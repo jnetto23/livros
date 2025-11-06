@@ -48,7 +48,7 @@
             margin-bottom: 10px;
             padding: 8px;
             background-color: #f0f0f0;
-            border-left: 4px solid #333;
+            /* border-left: 4px solid #333; */
         }
 
         .livros-table {
@@ -149,7 +149,6 @@
 <body>
     <div class="header">
         <h1>Relatório de Livros por Autor</h1>
-        <div class="subtitle">Gerado em: {{ $dataGeracao }}</div>
     </div>
 
     @foreach($autores as $autor)

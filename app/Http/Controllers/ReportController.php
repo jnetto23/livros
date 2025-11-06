@@ -3,57 +3,53 @@
 namespace App\Http\Controllers;
 
 use Barryvdh\DomPDF\Facade\Pdf;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
 final class ReportController extends Controller
 {
-    public function livrosPorAutor()
+    public function livrosPorAutor(Request $request)
     {
-        $dados = DB::table('autores_livros')
+        // Busca já agregada em JSON
+        $rows = DB::table('autores_livros_json')
             ->orderBy('autor_nome')
             ->get();
 
-        // Processa os dados para facilitar a renderização
+        // Normaliza em array para a view
         $autores = [];
-        foreach ($dados as $row) {
-            $livros = [];
-            $livrosRaw = explode(' | ', $row->livros);
+        foreach ($rows as $row) {
+            $livros = json_decode($row->livros ?? '[]', true) ?: [];
 
-            foreach ($livrosRaw as $livroRaw) {
-                $parts = explode(',', $livroRaw);
-                if (count($parts) >= 7) {
-                    $assuntos = array_pop($parts); // Remove último elemento (assuntos)
-                    $valor = (int) array_pop($parts); // Remove penúltimo (valor)
-                    $anoPublicacao = array_pop($parts);
-                    $edicao = (int) array_pop($parts);
-                    $editora = array_pop($parts);
-                    $titulo = array_pop($parts);
-                    $codl = (int) array_pop($parts);
-
-                    $livros[] = [
-                        'codl' => $codl,
-                        'titulo' => $titulo,
-                        'editora' => $editora,
-                        'edicao' => $edicao,
-                        'anoPublicacao' => $anoPublicacao,
-                        'valor' => $valor,
-                        'assuntos' => $assuntos !== 'Sem assunto' ? explode(';', $assuntos) : [],
-                    ];
-                }
-            }
+            // Garante estrutura e tipos
+            $livros = array_map(function (array $l) {
+                return [
+                    'codl'          => (int)   ($l['codl'] ?? 0),
+                    'titulo'        => (string)($l['titulo'] ?? ''),
+                    'editora'       => (string)($l['editora'] ?? ''),
+                    'edicao'        => (int)   ($l['edicao'] ?? 0),
+                    'anoPublicacao' => (string)($l['anoPublicacao'] ?? ''),
+                    'valor'         => (int)   ($l['valor'] ?? 0),
+                    'assuntos'      => array_values(array_filter((array)($l['assuntos'] ?? []), fn($v) => $v !== null && $v !== '')),
+                ];
+            }, $livros);
 
             $autores[] = [
-                'nome' => $row->autor_nome,
+                'nome'   => (string)$row->autor_nome,
                 'livros' => $livros,
             ];
         }
 
+        // Renderiza PDF
         $pdf = Pdf::loadView('reports.livros-por-autor', [
-            'autores' => $autores,
+            'autores'     => $autores,
             'dataGeracao' => now()->format('d/m/Y H:i:s'),
-        ]);
+        ])->setPaper('a4', 'portrait');
+
+        // ?inline=1 pra abrir no navegador; default download
+        if ($request->boolean('inline')) {
+            return $pdf->stream('relatorio-livros-por-autor.pdf');
+        }
 
         return $pdf->download('relatorio-livros-por-autor.pdf');
     }
 }
-
