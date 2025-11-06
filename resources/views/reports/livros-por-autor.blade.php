@@ -149,6 +149,7 @@
 <body>
     <div class="header">
         <h1>Relatório de Livros por Autor</h1>
+        <div class="subtitle">Gerado em: {{ now('America/Sao_Paulo')->format('d/m/Y H:i:s') }}</div>
     </div>
 
     @foreach($autores as $autor)
