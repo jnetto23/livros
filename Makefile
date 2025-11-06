@@ -6,12 +6,12 @@ GID := $(shell id -g)
 DC_DEV  := UID=$(UID) GID=$(GID) TARGET=$(TARGET) docker compose
 DC_PROD := UID=$(UID) GID=$(GID) TARGET=prod docker compose -f docker-compose.yml -f docker-compose.prod.yml
 
-APP_SVC := php
+APP_SVC   := php
 NGINX_SVC := nginx
-DB_SVC := mysql
+DB_SVC    := mysql
 
 .PHONY: up down restart logs-app logs-nginx logs-db bash test artisan composer migrate seed seed-biblioteca fresh tinker prune \
-        build-prod up-prod down-prod restart-prod logs-app-prod
+        build-prod up-prod down-prod restart-prod logs-app-prod cache-clear cache-clear-prod fix
 
 # ===== Dev (default) =====
 up:
@@ -33,8 +33,10 @@ restart:
 
 logs-app:
 	$(DC_DEV) logs -f $(APP_SVC)
+
 logs-nginx:
 	$(DC_DEV) logs -f $(NGINX_SVC)
+
 logs-db:
 	$(DC_DEV) logs -f $(DB_SVC)
 
@@ -52,14 +54,30 @@ composer:
 
 migrate:
 	$(DC_DEV) exec $(APP_SVC) php artisan migrate
+
 seed:
 	$(DC_DEV) exec $(APP_SVC) php artisan db:seed
+
 seed-biblioteca:
 	$(DC_DEV) exec $(APP_SVC) php artisan db:seed --class=Database\\Seeders\\BibliotecaSeeder
+
 fresh:
 	$(DC_DEV) exec $(APP_SVC) php artisan migrate:fresh --seed
+
 tinker:
 	$(DC_DEV) exec $(APP_SVC) php artisan tinker
+
+# Limpeza de cache (Dev/Prod) e utilitário
+cache-clear:
+	$(DC_DEV) exec $(APP_SVC) php artisan optimize:clear
+
+cache-clear-prod:
+	$(DC_PROD) exec $(APP_SVC) php artisan optimize:clear
+
+fix:
+	$(DC_DEV) exec $(APP_SVC) php artisan optimize:clear
+	$(DC_DEV) exec $(APP_SVC) ./vendor/bin/pint || true
+	$(DC_DEV) exec $(APP_SVC) ./vendor/bin/pest --testsuite=Unit || true
 
 prune:
 	$(DC_DEV) down -v --remove-orphans
