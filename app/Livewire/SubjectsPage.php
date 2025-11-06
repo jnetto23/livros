@@ -85,6 +85,7 @@ final class SubjectsPage extends Component
 
     public function openCreate(): void
     {
+        $this->resetValidation();
         $this->editingId = null;
         $this->description = '';
         $this->saving = false;
@@ -94,18 +95,22 @@ final class SubjectsPage extends Component
 
     public function openEdit(string $id): void
     {
-        $output = $this->findAssunto->execute(new FindAssuntoByIdInputDTO((int) $id));
+        try {
+            $output = $this->findAssunto->execute(new FindAssuntoByIdInputDTO((int) $id));
+            if (!$output->assunto) {
+                $this->dispatch('show-error', message: 'Assunto não encontrado');
+                return;
+            }
 
-        if (!$output->assunto) {
-            $this->dispatch('show-error', message: 'Assunto não encontrado');
-            return;
+            $this->resetValidation();
+            $this->editingId = (string) $out->assunto->codas();
+            $this->description = $out->assunto->descricao()->value();
+            $this->saving = false;
+
+            $this->dispatch('modal:open', id: 'subjectModal');
+        } catch (\Throwable $e) {
+            $this->dispatch('show-error', message: $e->getMessage());
         }
-
-        $this->editingId = (string) $output->assunto->codas();
-        $this->description = $output->assunto->descricao()->value();
-        $this->saving = false;
-
-        $this->dispatch('modal:open', id: 'subjectModal');
     }
 
     public function confirmDelete(string $id): void
@@ -116,12 +121,18 @@ final class SubjectsPage extends Component
 
     public function delete(): void
     {
-        $this->deleteAssunto->execute(new DeleteAssuntoInputDTO((int) $this->editingId));
-
-        $this->dispatch('show-success', message: 'Assunto excluído com sucesso');
-        $this->dispatch('modal:close', id: 'subjectDeleteModal');
-        $this->editingId = null;
-        $this->resetPage($this->pageName);
+        try {
+            $this->deleteAssunto->execute(new DeleteAssuntoInputDTO((int) $this->editingId));
+            $this->dispatch('show-success', message: 'Assunto excluído com sucesso');
+            $this->resetPage($this->pageName);
+        } catch (\DomainException $e) {
+            $this->dispatch('show-error', message: $e->getMessage());
+        } catch (\Throwable $e) {
+            $this->dispatch('show-error', message: 'Erro ao excluir assunto: ' . $e->getMessage());
+        } finally {
+            $this->dispatch('modal:close', id: 'subjectDeleteModal');
+            $this->editingId = null;
+        }
     }
 
     /* ---------- Save ---------- */
@@ -138,28 +149,35 @@ final class SubjectsPage extends Component
         $this->saving = true;
         $this->validate();
 
-        if ($this->editingId) {
-            $this->updateAssunto->execute(
-                new UpdateAssuntoInputDTO(
-                    (int) $this->editingId,
-                    $this->description
-                )
-            );
-            $msg = 'Assunto atualizado com sucesso';
-        } else {
-            $this->createAssunto->execute(
-                new CreateAssuntoInputDTO($this->description)
-            );
-            $msg = 'Assunto criado com sucesso';
+        try {
+            if ($this->editingId) {
+                $this->updateAssunto->execute(
+                    new UpdateAssuntoInputDTO(
+                        (int) $this->editingId,
+                        $this->description
+                    )
+                );
+                $this->dispatch('show-success', message: 'Assunto atualizado com sucesso');
+            } else {
+                $this->createAssunto->execute(
+                    new CreateAssuntoInputDTO($this->description)
+                );
+                $this->dispatch('show-success', message: 'Assunto criado com sucesso');
+                $this->resetPage($this->pageName);
+            }
+
+            $this->dispatch('modal:close', id: 'subjectModal');
+            $this->resetValidation();
+            $this->reset(['editingId', 'description']);
+        } catch (\DomainException $e) {
+            // Ex.: “Já existe um assunto com a descrição ‘X’.”
+            $this->addError('description', $e->getMessage());
+            $this->dispatch('show-error', message: $e->getMessage());
+        } catch (\Throwable $e) {
+            $this->dispatch('show-error', message: 'Erro ao salvar assunto: ' . $e->getMessage());
+        } finally {
+            $this->saving = false;
         }
-
-        $this->dispatch('show-success', message: $msg);
-        $this->dispatch('modal:close', id: 'subjectModal');
-
-        $this->editingId = null;
-        $this->description = '';
-        $this->resetPage($this->pageName);
-        $this->saving = false;
     }
 
     /* ---------- Computed ---------- */
