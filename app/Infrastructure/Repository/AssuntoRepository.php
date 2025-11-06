@@ -3,6 +3,7 @@
 namespace App\Infrastructure\Repository;
 
 use App\Application\Repository\AssuntoRepositoryInterface;
+use App\Application\Usecases\Queries\ListAssuntosInputDTO;
 use App\Domain\Entity\Assunto;
 use App\Domain\VOs\DescricaoAssunto;
 use App\Models\AssuntoModel;
@@ -33,12 +34,53 @@ final class AssuntoRepository implements AssuntoRepositoryInterface
         return $this->toEntity($model);
     }
 
-    /** @return array<Assunto> */
-    public function findAll(): array
+    /**
+     * @return array{data: array<Assunto>, total: int}
+     */
+    public function findAll(ListAssuntosInputDTO $filters): array
     {
-        $models = AssuntoModel::all();
+        $query = AssuntoModel::query();
 
-        return $models->map(fn(AssuntoModel $model) => $this->toEntity($model))->toArray();
+        // Busca
+        if ($filters->search !== null) {
+            $query->where('descricao', 'like', "%{$filters->search}%");
+        }
+
+        // Ordenação (whitelist para segurança)
+        $sort = \in_array($filters->sort, $this->sortable(), true)
+            ? $filters->sort
+            : $this->defaultSort();
+
+        $dir  = $filters->dir === 'desc' ? 'desc' : 'asc';
+
+        $query->orderBy($sort, $dir);
+
+        $paginator = $query->paginate(
+            $filters->limit,
+            ['*'],
+            'page',
+            $filters->page
+        );
+
+        $data = array_map(
+            fn (AssuntoModel $m) => $this->toEntity($m),
+            $paginator->items()
+        );
+
+        return [
+            'data'  => $data,
+            'total' => (int) $paginator->total(),
+        ];
+    }
+
+    private function sortable(): array
+    {
+        return ['descricao'];
+    }
+
+    private function defaultSort(): string
+    {
+        return 'descricao';
     }
 
     public function delete(int $codas): void

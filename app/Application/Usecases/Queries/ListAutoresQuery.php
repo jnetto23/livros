@@ -8,7 +8,6 @@ use App\Application\Repository\AutorRepositoryInterface;
 
 final class ListAutoresQuery implements UseCaseInterface
 {
-    private const DEFAULT_SORT = 'name';
 
     public function __construct(
         private readonly AutorRepositoryInterface $repository
@@ -19,39 +18,29 @@ final class ListAutoresQuery implements UseCaseInterface
     {
         assert($input instanceof ListAutoresInputDTO);
 
-        $autores = $this->repository->findAll();
+        $result = $this->repository->findAll($input);
 
-        // Filtro por busca
-        if ($input->search !== null) {
-            $search = mb_strtolower($input->search);
-            $autores = array_filter($autores, function (Autor $autor) use ($search) {
-                return str_contains(mb_strtolower($autor->nome()->value()), $search);
-            });
-        }
+        $total = (int)($result['total'] ?? 0);
+        $limit = $input->limit;
+        $page  = $input->page;
+        $totalPages = $total === 0 ? 0 : (int)ceil($total / $limit);
 
-        // Ordenação
-        $sort = $input->sort ?? self::DEFAULT_SORT;
-
-        if ($sort === 'name') {
-            usort($autores, function (Autor $a, Autor $b) use ($input) {
-                $cmp = strnatcasecmp($a->nome()->value(), $b->nome()->value());
-                return $input->dir === 'asc' ? $cmp : -$cmp;
-            });
-        }
-
-        // Paginação
-        $total = count($autores);
-        $totalPages = (int) ceil($total / $input->limit);
-
-        $offset = ($input->page - 1) * $input->limit;
-        $autoresPaginados = array_slice(array_values($autores), $offset, $input->limit);
-
-        return new ListAutoresOutputDTO($autoresPaginados, $total, $input->page, $input->limit, $totalPages);
+        return new ListAutoresOutputDTO(
+            $result['data'] ?? [],
+            $total,
+            $page,
+            $limit,
+            $totalPages
+        );
     }
 }
 
 final class ListAutoresInputDTO extends ListInputDTO
 {
+    protected function getDefaultSort(): string
+    {
+        return 'nome';
+    }
 }
 
 final class ListAutoresOutputDTO extends ListOutputDTO

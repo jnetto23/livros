@@ -8,8 +8,6 @@ use App\Application\Repository\AssuntoRepositoryInterface;
 
 final class ListAssuntosQuery implements UseCaseInterface
 {
-    private const DEFAULT_SORT = 'description';
-
     public function __construct(
         private readonly AssuntoRepositoryInterface $repository
     ) {
@@ -19,39 +17,29 @@ final class ListAssuntosQuery implements UseCaseInterface
     {
         assert($input instanceof ListAssuntosInputDTO);
 
-        $assuntos = $this->repository->findAll();
+        $result = $this->repository->findAll($input);
 
-        // Filtro por busca
-        if ($input->search !== null) {
-            $search = mb_strtolower($input->search);
-            $assuntos = array_filter($assuntos, function (Assunto $assunto) use ($search) {
-                return str_contains(mb_strtolower($assunto->descricao()->value()), $search);
-            });
-        }
+        $total = (int)($result['total'] ?? 0);
+        $limit = $input->limit;
+        $page  = $input->page;
+        $totalPages = $total === 0 ? 0 : (int)ceil($total / $limit);
 
-        // Ordenação
-        $sort = $input->sort ?? self::DEFAULT_SORT;
-
-        if ($sort === 'description') {
-            usort($assuntos, function (Assunto $a, Assunto $b) use ($input) {
-                $cmp = strnatcasecmp($a->descricao()->value(), $b->descricao()->value());
-                return $input->dir === 'asc' ? $cmp : -$cmp;
-            });
-        }
-
-        // Paginação
-        $total = count($assuntos);
-        $totalPages = (int) ceil($total / $input->limit);
-
-        $offset = ($input->page - 1) * $input->limit;
-        $assuntosPaginados = array_slice(array_values($assuntos), $offset, $input->limit);
-
-        return new ListAssuntosOutputDTO($assuntosPaginados, $total, $input->page, $input->limit, $totalPages);
+        return new ListAssuntosOutputDTO(
+            $result['data'] ?? [],
+            $total,
+            $page,
+            $limit,
+            $totalPages
+        );
     }
 }
 
 final class ListAssuntosInputDTO extends ListInputDTO
 {
+    protected function getDefaultSort(): string
+    {
+        return 'descricao';
+    }
 }
 
 final class ListAssuntosOutputDTO extends ListOutputDTO

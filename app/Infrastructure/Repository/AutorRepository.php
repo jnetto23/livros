@@ -2,6 +2,7 @@
 
 namespace App\Infrastructure\Repository;
 
+use App\Application\Usecases\Queries\ListAutoresInputDTO;
 use App\Application\Repository\AutorRepositoryInterface;
 use App\Domain\Entity\Autor;
 use App\Domain\VOs\NomeAutor;
@@ -33,12 +34,53 @@ final class AutorRepository implements AutorRepositoryInterface
         return $this->toEntity($model);
     }
 
-    /** @return array<Autor> */
-    public function findAll(): array
+/**
+     * @return array{data: array<Autor>, total: int}
+     */
+    public function findAll(ListAutoresInputDTO $filters): array
     {
-        $models = AutorModel::all();
+        $query = AutorModel::query();
 
-        return $models->map(fn(AutorModel $model) => $this->toEntity($model))->toArray();
+        // Busca
+        if ($filters->search !== null) {
+            $query->where('nome', 'like', "%{$filters->search}%");
+        }
+
+        // Ordenação (whitelist para segurança)
+        $sort = \in_array($filters->sort, $this->sortable(), true)
+            ? $filters->sort
+            : $this->defaultSort();
+
+        $dir  = $filters->dir === 'desc' ? 'desc' : 'asc';
+
+        $query->orderBy($sort, $dir);
+
+        $paginator = $query->paginate(
+            $filters->limit,
+            ['*'],
+            'page',
+            $filters->page
+        );
+
+        $data = array_map(
+            fn (AutorModel $m) => $this->toEntity($m),
+            $paginator->items()
+        );
+
+        return [
+            'data'  => $data,
+            'total' => (int) $paginator->total(),
+        ];
+    }
+
+    private function sortable(): array
+    {
+        return ['nome'];
+    }
+
+    private function defaultSort(): string
+    {
+        return 'nome';
     }
 
     public function delete(int $codau): void

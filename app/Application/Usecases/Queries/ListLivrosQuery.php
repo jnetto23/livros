@@ -8,8 +8,6 @@ use App\Application\Repository\LivroRepositoryInterface;
 
 final class ListLivrosQuery implements UseCaseInterface
 {
-    private const DEFAULT_SORT = 'title';
-
     public function __construct(
         private readonly LivroRepositoryInterface $repository
     ) {
@@ -19,56 +17,29 @@ final class ListLivrosQuery implements UseCaseInterface
     {
         assert($input instanceof ListLivrosInputDTO);
 
-        $livros = $this->repository->findAll();
+        $result = $this->repository->findAll($input);
 
-        // Filtro por busca
-        if ($input->search !== null) {
-            $search = mb_strtolower($input->search);
-            $livros = array_filter($livros, function (Livro $livro) use ($search) {
-                return str_contains(mb_strtolower($livro->titulo()->value()), $search)
-                    || str_contains(mb_strtolower($livro->editora()->value()), $search)
-                    || str_contains(mb_strtolower($livro->anoPublicacao()->value()), $search);
-            });
-        }
+        $total = (int)($result['total'] ?? 0);
+        $limit = $input->limit;
+        $page  = $input->page;
+        $totalPages = $total === 0 ? 0 : (int)ceil($total / $limit);
 
-        // Ordenação
-        $sort = $input->sort ?? self::DEFAULT_SORT;
-
-        usort($livros, function (Livro $a, Livro $b) use ($sort, $input) {
-            $valueA = match($sort) {
-                'title' => $a->titulo()->value(),
-                'publisher' => $a->editora()->value(),
-                'edition' => (string) $a->edicao()->value(),
-                'year' => $a->anoPublicacao()->value(),
-                'valor' => (string) $a->valor()->value(),
-                default => $a->titulo()->value(),
-            };
-            $valueB = match($sort) {
-                'title' => $b->titulo()->value(),
-                'publisher' => $b->editora()->value(),
-                'edition' => (string) $b->edicao()->value(),
-                'year' => $b->anoPublicacao()->value(),
-                'valor' => (string) $b->valor()->value(),
-                default => $b->titulo()->value(),
-            };
-
-            $cmp = strnatcasecmp($valueA, $valueB);
-            return $input->dir === 'asc' ? $cmp : -$cmp;
-        });
-
-        // Paginação
-        $total = count($livros);
-        $totalPages = (int) ceil($total / $input->limit);
-
-        $offset = ($input->page - 1) * $input->limit;
-        $livrosPaginados = array_slice(array_values($livros), $offset, $input->limit);
-
-        return new ListLivrosOutputDTO($livrosPaginados, $total, $input->page, $input->limit, $totalPages);
+        return new ListLivrosOutputDTO(
+            $result['data'] ?? [],
+            $total,
+            $page,
+            $limit,
+            $totalPages
+        );
     }
 }
 
 final class ListLivrosInputDTO extends ListInputDTO
 {
+    protected function getDefaultSort(): string
+    {
+        return 'titulo';
+    }
 }
 
 final class ListLivrosOutputDTO extends ListOutputDTO
