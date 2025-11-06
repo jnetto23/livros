@@ -23,7 +23,7 @@ final class SubjectsPage extends Component
 {
     use WithPagination;
 
-    protected string $pageName = 'page';
+    protected string $pageName = 'subject_page';
 
     #[Url(history: true)] public string $search = '';
     #[Url(history: true)] public ?string $sort = 'descricao'; // coluna do backend

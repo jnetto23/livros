@@ -120,7 +120,7 @@
 
       <div class="btn-group">
         <button class="btn btn-outline-secondary btn-sm"
-                wire:click="previousPage"
+                wire:click="previousPage('{{ $this->pageName }}')"
                 @if($currentPage === 1) disabled @endif
                 wire:loading.attr="disabled">
           Anterior
@@ -136,7 +136,7 @@
         @endfor
 
         <button class="btn btn-outline-secondary btn-sm"
-                wire:click="nextPage"
+                wire:click="nextPage('{{ $this->pageName }}')"
                 @if($currentPage === $pages) disabled @endif
                 wire:loading.attr="disabled">
           Próxima

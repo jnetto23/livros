@@ -22,7 +22,7 @@ final class AuthorsPage extends Component
 {
     use WithPagination;
 
-    protected string $pageName = 'page';
+    protected string $pageName = 'author_page';
 
     // Filtros/ordenação
     #[Url(history: true)] public string $search = '';

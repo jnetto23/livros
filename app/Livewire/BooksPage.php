@@ -33,7 +33,7 @@ final class BooksPage extends Component
      * Nome do paginador usado pelo trait (mantém compat com previousPage/gotoPage/nextPage).
      * Se você tiver mais de uma tabela na mesma página, crie outros pageNames.
      */
-    protected string $pageName = 'page';
+    protected string $pageName = 'book_page';
 
     // Filtros/ordenação
     #[Url(history: true)] public string $search = '';
