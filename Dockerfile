@@ -16,8 +16,8 @@ COPY resources ./resources
 COPY vite.config.* postcss.config.* tailwind.config.* ./
 COPY public ./public
 
-# Build (se não houver script, ignora)
-RUN npm run build || echo "⚠️  Sem script build; ignorando"
+# Build (se não houver script, cria a pasta para não quebrar o COPY depois)
+RUN npm run build || (echo "⚠️  Sem script build; criando public/build vazio" && mkdir -p /app/public/build)
 
 # =========================
 # STAGE: base php-fpm
@@ -30,7 +30,7 @@ RUN apk add --no-cache bash git unzip icu icu-dev oniguruma-dev libzip-dev zlib-
  && apk add --no-cache --virtual .build-deps $PHPIZE_DEPS autoconf g++ make linux-headers \
  # Extensões nativas
  && docker-php-ext-configure gd --with-freetype --with-jpeg \
- && docker-php-ext-install -j$(nproc) \
+ && docker-php-ext-install -j"$(nproc)" \
     bcmath intl pcntl pdo_mysql zip gd dom xml simplexml sockets opcache \
  # Limpa build deps
  && apk del .build-deps
@@ -62,7 +62,28 @@ FROM php_base AS prod
 
 ARG UID=1000
 ARG GID=1000
-RUN addgroup -g ${GID} app && adduser -u ${UID} -G app -D -s /bin/sh app
+ARG APP_USER=app
+ARG APP_HOME=/var/www/html
+
+# Criação segura de grupo/usuário mesmo com GID/UID já existentes
+# Usa shadow temporariamente e remove na mesma camada
+RUN set -eux; \
+    apk add --no-cache --virtual .userbuild-deps shadow; \
+    # Grupo (se GID já existir, renomeia para APP_USER; senão cria)
+    if getent group "${GID}" >/dev/null; then \
+        EXIST_GRP="$(getent group "${GID}" | cut -d: -f1)"; \
+        if [ "${EXIST_GRP}" != "${APP_USER}" ]; then groupmod -n "${APP_USER}" "${EXIST_GRP}"; fi; \
+    else \
+        groupadd -g "${GID}" "${APP_USER}"; \
+    fi; \
+    # Usuário (se já existir, ajusta UID/GID; senão cria)
+    if id -u "${APP_USER}" >/dev/null 2>&1; then \
+        usermod -u "${UID}" -g "${GID}" "${APP_USER}"; \
+    else \
+        useradd -u "${UID}" -g "${GID}" -M -s /bin/sh "${APP_USER}"; \
+    fi; \
+    mkdir -p "${APP_HOME}"; chown -R "${APP_USER}:${APP_USER}" "${APP_HOME}"; \
+    apk del .userbuild-deps
 
 # Composer oficial
 COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
@@ -89,14 +110,14 @@ RUN php artisan config:cache || true \
 
 # Permissões runtime
 RUN mkdir -p storage bootstrap/cache \
- && chown -R app:app storage bootstrap/cache \
+ && chown -R "${APP_USER}:${APP_USER}" storage bootstrap/cache \
  && chmod -R ug+rwX storage bootstrap/cache
 
 # Entrypoint
 COPY .docker/entrypoint.sh /usr/local/bin/entrypoint.sh
 RUN chmod +x /usr/local/bin/entrypoint.sh
 
-USER app
+USER ${APP_USER}
 EXPOSE 9000
 CMD ["php-fpm", "-F"]
 
@@ -107,20 +128,38 @@ FROM php_base AS dev
 
 ARG UID=1000
 ARG GID=1000
-RUN addgroup -g ${GID} app && adduser -u ${UID} -G app -D -s /bin/sh app
+ARG APP_USER=app
+ARG APP_HOME=/var/www/html
+
+# Criação segura de grupo/usuário (mesma lógica do prod)
+RUN set -eux; \
+    apk add --no-cache --virtual .userbuild-deps shadow; \
+    if getent group "${GID}" >/dev/null; then \
+        EXIST_GRP="$(getent group "${GID}" | cut -d: -f1)"; \
+        if [ "${EXIST_GRP}" != "${APP_USER}" ]; then groupmod -n "${APP_USER}" "${EXIST_GRP}"; fi; \
+    else \
+        groupadd -g "${GID}" "${APP_USER}"; \
+    fi; \
+    if id -u "${APP_USER}" >/dev/null 2>&1; then \
+        usermod -u "${UID}" -g "${GID}" "${APP_USER}"; \
+    else \
+        useradd -u "${UID}" -g "${GID}" -M -s /bin/sh "${APP_USER}"; \
+    fi; \
+    mkdir -p "${APP_HOME}"; chown -R "${APP_USER}:${APP_USER}" "${APP_HOME}"; \
+    apk del .userbuild-deps
 
 # Composer para dev
 COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
 
 # Prepara diretórios de runtime
 RUN mkdir -p storage bootstrap/cache \
- && chown -R app:app storage bootstrap/cache \
+ && chown -R "${APP_USER}:${APP_USER}" storage bootstrap/cache \
  && chmod -R ug+rwX storage bootstrap/cache
 
 # Entrypoint
 COPY .docker/entrypoint.sh /usr/local/bin/entrypoint.sh
 RUN chmod +x /usr/local/bin/entrypoint.sh
 
-USER app
+USER ${APP_USER}
 EXPOSE 9000
 CMD ["php-fpm", "-F"]
